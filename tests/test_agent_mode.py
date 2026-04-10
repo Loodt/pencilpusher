@@ -191,6 +191,33 @@ class TestFillWithFieldMap:
         assert result.exit_code == 0
         assert output_path.exists()
 
+    def test_fill_flat_pdf_with_fields_json(self, runner, tmp_path):
+        """Fill a flat PDF using --field-map + --fields-json for positioning."""
+        flat_path = Path(__file__).parent / "test_form_flat.pdf"
+        if not flat_path.exists():
+            pytest.skip("test_form_flat.pdf not available")
+
+        # Agent provides both the values and the field positions
+        field_map = json.dumps({"Full Name": "Jane Moyo"})
+        fields_json = json.dumps([{
+            "name": "Full Name",
+            "field_type": "visual",
+            "page": 0,
+            "bbox": [15, 20, 50, 3],
+        }])
+
+        output_path = tmp_path / "filled_flat.pdf"
+        result = runner.invoke(main, [
+            "fill", str(flat_path),
+            "--field-map", field_map,
+            "--fields-json", fields_json,
+            "-o", str(output_path),
+        ])
+        assert result.exit_code == 0
+        assert output_path.exists()
+        # Verify the output is larger than the input (widget added)
+        assert output_path.stat().st_size > flat_path.stat().st_size
+
     def test_fill_invalid_json(self, runner, tmp_path):
         """Invalid JSON in --field-map should fail gracefully."""
         from docx import Document
@@ -203,5 +230,18 @@ class TestFillWithFieldMap:
         result = runner.invoke(main, [
             "fill", str(docx_path),
             "--field-map", "not-json",
+        ])
+        assert result.exit_code != 0
+
+    def test_fill_invalid_fields_json(self, runner, tmp_path):
+        """Invalid JSON in --fields-json should fail gracefully."""
+        flat_path = Path(__file__).parent / "test_form_flat.pdf"
+        if not flat_path.exists():
+            pytest.skip("test_form_flat.pdf not available")
+
+        result = runner.invoke(main, [
+            "fill", str(flat_path),
+            "--field-map", '{"Name": "Test"}',
+            "--fields-json", "not-json",
         ])
         assert result.exit_code != 0

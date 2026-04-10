@@ -102,6 +102,7 @@ Successfully produced a 10-document Zambian PACRA compliance package:
 | `pencilpusher detect <form>` | Detect form fields as JSON (no API for AcroForm/DOCX) |
 | `pencilpusher write-wiki <page> <content>` | Write directly to a vault wiki page (no API) |
 | `pencilpusher fill <form> --field-map '{...}'` | Fill with explicit mapping (no API) |
+| `pencilpusher fill <form> --field-map '{...}' --fields-json '[...]'` | Fill flat PDF with agent-provided field positions (no API) |
 
 ## Agent-driven mode (no API key needed)
 
@@ -119,9 +120,14 @@ pencilpusher detect application.pdf
 
 # 4. Agent matches fields to vault data, then fills
 pencilpusher fill application.pdf --field-map '{"Full Name": "Jane Moyo", "Date of Birth": "15 March 1990"}'
+
+# For flat PDFs (no AcroForm), the agent also provides field positions:
+pencilpusher fill flat.pdf \
+  --field-map '{"Full Name": "Jane Moyo"}' \
+  --fields-json '[{"name": "Full Name", "bbox": [15, 20, 50, 3], "page": 0}]'
 ```
 
-The `read`, `detect`, `write-wiki`, and `fill --field-map` commands make zero API calls. The existing `ingest` and `fill` commands still work standalone with an API key.
+The `read`, `detect`, `write-wiki`, and `fill --field-map` commands make zero API calls. For flat PDFs, pass `--fields-json` with field positions from the agent's own vision analysis. The existing `ingest` and `fill` commands still work standalone with an API key.
 
 ## Requirements
 

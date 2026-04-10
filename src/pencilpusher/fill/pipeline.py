@@ -122,21 +122,24 @@ def fill_document_with_map(
     target_path: Path,
     field_map: dict[str, str],
     output_path: Path | None = None,
+    fields_override: list[dict] | None = None,
 ) -> Path:
     """Fill a document using an explicit field-to-value mapping (no API calls).
 
     For AcroForm PDFs and DOCX, field detection is deterministic.
-    Flat PDFs (no AcroForm) will warn — visual detection requires an API call.
+    For flat PDFs, pass fields_override with bbox data from agent vision analysis.
 
     Args:
         target_path: Path to the form/document to fill
         field_map: Dict mapping field names to values (e.g. {"Full Name": "Jane Moyo"})
         output_path: Where to save (default: alongside original with _filled suffix)
+        fields_override: List of field dicts with name, bbox, page, etc.
+            Used for flat PDFs where the agent provides field positions.
 
     Returns:
         Path to the filled document
     """
-    from pencilpusher.fill.detector import detect_acroform_fields
+    from pencilpusher.fill.detector import DetectedField, detect_acroform_fields
 
     target_path = Path(target_path)
     if not target_path.exists():
@@ -148,12 +151,26 @@ def fill_document_with_map(
         output_path = target_path.parent / f"{target_path.stem}_filled{target_path.suffix}"
     output_path = Path(output_path)
 
-    # Detect fields (deterministic for AcroForm/DOCX)
-    if file_type == "pdf":
+    # Use fields_override if provided (agent-driven flat PDF filling)
+    if fields_override is not None:
+        fields = [
+            DetectedField(
+                name=f.get("name", ""),
+                field_type=f.get("field_type", "visual"),
+                page=f.get("page"),
+                field_key=f.get("field_key", f.get("name", "")),
+                bbox=f.get("bbox", []),
+                value=f.get("value", ""),
+                required=f.get("required", False),
+                context=f.get("context", ""),
+            )
+            for f in fields_override
+        ]
+    elif file_type == "pdf":
         fields = detect_acroform_fields(target_path)
         if not fields:
             console.print("[yellow]Warning: Flat PDF — no AcroForm fields found. "
-                          "--field-map works best with AcroForm PDFs or DOCX.[/yellow]")
+                          "Use --fields-json to provide field positions for flat PDFs.[/yellow]")
     elif file_type == "docx":
         fields = detect_docx_fields(target_path)
     else:

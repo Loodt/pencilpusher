@@ -122,19 +122,24 @@ def ingest(file_path: str, category: str | None, model: str | None):
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
 @click.option("--field-map", default=None,
               help='JSON field-to-value mapping. Skips API matching. E.g. \'{"Full Name": "Jane Moyo"}\'')
-def fill(file_path: str, output: str | None, model: str | None, yes: bool, field_map: str | None):
+@click.option("--fields-json", default=None,
+              help='JSON detected fields (from "detect" output). Needed for flat PDF filling with --field-map.')
+def fill(file_path: str, output: str | None, model: str | None, yes: bool,
+         field_map: str | None, fields_json: str | None):
     """Fill a form document with your vault data.
 
     Detects fields in the document, matches them to your personal data,
     and produces a filled copy without changing the styling.
 
     With --field-map, skips the API matching step entirely (agent-driven mode).
+    Add --fields-json for flat PDFs where field positions are needed.
 
     Examples:
         pencilpusher fill application.pdf
         pencilpusher fill tax_form.docx -o filled_tax.docx
         pencilpusher fill kyc_form.pdf --yes
         pencilpusher fill form.pdf --field-map '{"Full Name": "Jane Moyo"}'
+        pencilpusher fill flat.pdf --field-map '{"Name": "Jane"}' --fields-json '[{"name": "Name", "bbox": [15, 20, 50, 3], "page": 0}]'
     """
     target_path = Path(file_path)
     output_path = Path(output) if output else None
@@ -149,7 +154,16 @@ def fill(file_path: str, output: str | None, model: str | None, yes: bool, field
             console.print(f"[red]Invalid JSON in --field-map: {e}[/red]")
             sys.exit(1)
 
-        fill_document_with_map(target_path, parsed_map, output_path=output_path)
+        parsed_fields = None
+        if fields_json:
+            try:
+                parsed_fields = json_mod.loads(fields_json)
+            except json_mod.JSONDecodeError as e:
+                console.print(f"[red]Invalid JSON in --fields-json: {e}[/red]")
+                sys.exit(1)
+
+        fill_document_with_map(target_path, parsed_map, output_path=output_path,
+                               fields_override=parsed_fields)
     else:
         from pencilpusher.fill.pipeline import fill_document
 
@@ -256,8 +270,8 @@ def detect(form_path: str):
             result = {
                 "fields": [],
                 "warning": "flat_pdf_requires_vision",
-                "message": "This PDF has no AcroForm fields. Visual detection requires "
-                           "an API call. Use 'pencilpusher fill <form>' with --model instead.",
+                "message": "This PDF has no AcroForm fields. Use your own vision to identify "
+                           "field positions, then pass them via --fields-json when filling.",
             }
             click.echo(json_mod.dumps(result, indent=2))
             return
