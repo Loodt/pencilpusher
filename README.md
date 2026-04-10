@@ -91,18 +91,42 @@ Successfully produced a 10-document Zambian PACRA compliance package:
 | Command | Description |
 |---------|-------------|
 | `pencilpusher init` | Create vault with sources/inbox/outbox/wiki folders |
-| `pencilpusher ingest <file>` | Ingest a single document |
-| `pencilpusher ingest-all` | Ingest all new files from sources/ |
-| `pencilpusher fill <form>` | Fill a single form |
-| `pencilpusher fill-all` | Fill all forms in inbox/ → outbox/ |
+| `pencilpusher ingest <file>` | Ingest a single document (API) |
+| `pencilpusher ingest-all` | Ingest all new files from sources/ (API) |
+| `pencilpusher fill <form>` | Fill a single form (API) |
+| `pencilpusher fill-all` | Fill all forms in inbox/ → outbox/ (API) |
 | `pencilpusher show [page]` | Display vault index or specific wiki page |
 | `pencilpusher lint` | Health-check the wiki |
 | `pencilpusher files` | List stored source documents |
+| `pencilpusher read <file>` | Convert any document to Markdown (no API) |
+| `pencilpusher detect <form>` | Detect form fields as JSON (no API for AcroForm/DOCX) |
+| `pencilpusher write-wiki <page> <content>` | Write directly to a vault wiki page (no API) |
+| `pencilpusher fill <form> --field-map '{...}'` | Fill with explicit mapping (no API) |
+
+## Agent-driven mode (no API key needed)
+
+pencilpusher can be used by AI coding agents (Claude Code, OpenAI Codex, etc.) without an Anthropic API key. The agent does the LLM reasoning; pencilpusher does the document manipulation.
+
+```bash
+# 1. Read a document — agent gets Markdown back
+pencilpusher read passport.pdf
+
+# 2. Agent reasons about the data, then writes to vault
+pencilpusher write-wiki identity "# Identity\nName: Jane Moyo\nDOB: 1990-03-15"
+
+# 3. Detect form fields — agent gets JSON back
+pencilpusher detect application.pdf
+
+# 4. Agent matches fields to vault data, then fills
+pencilpusher fill application.pdf --field-map '{"Full Name": "Jane Moyo", "Date of Birth": "15 March 1990"}'
+```
+
+The `read`, `detect`, `write-wiki`, and `fill --field-map` commands make zero API calls. The existing `ingest` and `fill` commands still work standalone with an API key.
 
 ## Requirements
 
 - Python 3.10+
-- Anthropic API key (`ANTHROPIC_API_KEY` environment variable)
+- Anthropic API key (`ANTHROPIC_API_KEY`) — only needed for `ingest`, `fill` (without --field-map), and `lint`
 
 ## Development
 

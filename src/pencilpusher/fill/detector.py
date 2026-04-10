@@ -34,7 +34,7 @@ def detect_pdf_fields(pdf_path: Path, model: str = "claude-sonnet-4-6") -> list[
     Falls back to Claude vision for flat PDFs.
     """
     # Try AcroForm first
-    acroform_fields = _detect_acroform_fields(pdf_path)
+    acroform_fields = detect_acroform_fields(pdf_path)
     if acroform_fields:
         return acroform_fields
 
@@ -42,7 +42,7 @@ def detect_pdf_fields(pdf_path: Path, model: str = "claude-sonnet-4-6") -> list[
     return _detect_visual_fields(pdf_path, model)
 
 
-def _detect_acroform_fields(pdf_path: Path) -> list[DetectedField]:
+def detect_acroform_fields(pdf_path: Path) -> list[DetectedField]:
     """Extract AcroForm fields from a PDF."""
     from pypdf import PdfReader
 

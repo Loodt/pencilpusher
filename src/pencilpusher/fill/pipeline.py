@@ -118,6 +118,74 @@ def fill_document(
     return result_path
 
 
+def fill_document_with_map(
+    target_path: Path,
+    field_map: dict[str, str],
+    output_path: Path | None = None,
+) -> Path:
+    """Fill a document using an explicit field-to-value mapping (no API calls).
+
+    For AcroForm PDFs and DOCX, field detection is deterministic.
+    Flat PDFs (no AcroForm) will warn — visual detection requires an API call.
+
+    Args:
+        target_path: Path to the form/document to fill
+        field_map: Dict mapping field names to values (e.g. {"Full Name": "Jane Moyo"})
+        output_path: Where to save (default: alongside original with _filled suffix)
+
+    Returns:
+        Path to the filled document
+    """
+    from pencilpusher.fill.detector import detect_acroform_fields
+
+    target_path = Path(target_path)
+    if not target_path.exists():
+        raise FileNotFoundError(f"Target document not found: {target_path}")
+
+    file_type = detect_file_type(target_path)
+
+    if output_path is None:
+        output_path = target_path.parent / f"{target_path.stem}_filled{target_path.suffix}"
+    output_path = Path(output_path)
+
+    # Detect fields (deterministic for AcroForm/DOCX)
+    if file_type == "pdf":
+        fields = detect_acroform_fields(target_path)
+        if not fields:
+            console.print("[yellow]Warning: Flat PDF — no AcroForm fields found. "
+                          "--field-map works best with AcroForm PDFs or DOCX.[/yellow]")
+    elif file_type == "docx":
+        fields = detect_docx_fields(target_path)
+    else:
+        raise ValueError(f"Unsupported file type: {target_path.suffix}")
+
+    # Convert field_map to matches format expected by fillers
+    matches = []
+    for field_name, value in field_map.items():
+        # Try to find a matching detected field for the key
+        field_key = field_name
+        for f in fields:
+            if f.name.lower() == field_name.lower() or f.field_key.lower() == field_name.lower():
+                field_key = f.field_key
+                break
+        matches.append({
+            "field_name": field_name,
+            "field_key": field_key,
+            "matched_value": value,
+        })
+
+    # Fill
+    if file_type == "pdf":
+        result_path = fill_pdf(target_path, matches, fields, output_path)
+    elif file_type == "docx":
+        result_path = fill_docx(target_path, matches, fields, output_path)
+
+    filled_count = len([m for m in matches if m.get("matched_value")])
+    console.print(f"[bold green]Filled {filled_count} fields.[/bold green] Saved to: {result_path}")
+
+    return result_path
+
+
 def _show_preview(matches: list[dict], unmatchable: list[str], warnings: list[str]) -> None:
     """Show a preview table of matched fields."""
     table = Table(title="Field Matches", show_lines=True)

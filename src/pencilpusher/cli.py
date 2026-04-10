@@ -120,31 +120,48 @@ def ingest(file_path: str, category: str | None, model: str | None):
               help="Output path for the filled document")
 @click.option("--model", "-m", default=None, help="Anthropic model to use")
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
-def fill(file_path: str, output: str | None, model: str | None, yes: bool):
+@click.option("--field-map", default=None,
+              help='JSON field-to-value mapping. Skips API matching. E.g. \'{"Full Name": "Jane Moyo"}\'')
+def fill(file_path: str, output: str | None, model: str | None, yes: bool, field_map: str | None):
     """Fill a form document with your vault data.
 
     Detects fields in the document, matches them to your personal data,
     and produces a filled copy without changing the styling.
 
+    With --field-map, skips the API matching step entirely (agent-driven mode).
+
     Examples:
         pencilpusher fill application.pdf
         pencilpusher fill tax_form.docx -o filled_tax.docx
         pencilpusher fill kyc_form.pdf --yes
+        pencilpusher fill form.pdf --field-map '{"Full Name": "Jane Moyo"}'
     """
-    from pencilpusher.fill.pipeline import fill_document
-
-    config = load_config()
-    vault = _get_vault()
-
-    if not (vault.wiki_dir / "index.md").exists():
-        console.print("[red]Vault not initialized. Run 'pencilpusher init' first.[/red]")
-        sys.exit(1)
-
-    use_model = model or config.get("vision_model", "claude-sonnet-4-6")
     target_path = Path(file_path)
     output_path = Path(output) if output else None
 
-    fill_document(vault, target_path, output_path=output_path, model=use_model, auto_confirm=yes)
+    if field_map:
+        import json as json_mod
+        from pencilpusher.fill.pipeline import fill_document_with_map
+
+        try:
+            parsed_map = json_mod.loads(field_map)
+        except json_mod.JSONDecodeError as e:
+            console.print(f"[red]Invalid JSON in --field-map: {e}[/red]")
+            sys.exit(1)
+
+        fill_document_with_map(target_path, parsed_map, output_path=output_path)
+    else:
+        from pencilpusher.fill.pipeline import fill_document
+
+        config = load_config()
+        vault = _get_vault()
+
+        if not (vault.wiki_dir / "index.md").exists():
+            console.print("[red]Vault not initialized. Run 'pencilpusher init' first.[/red]")
+            sys.exit(1)
+
+        use_model = model or config.get("vision_model", "claude-sonnet-4-6")
+        fill_document(vault, target_path, output_path=output_path, model=use_model, auto_confirm=yes)
 
 
 @main.command()
@@ -181,6 +198,115 @@ def show(page: str | None):
             console.print(Panel(content, title=f"vault/{page}.md"))
         else:
             console.print(f"[yellow]Page '{page}' is empty.[/yellow]")
+
+
+@main.command()
+@click.argument("file_path", type=click.Path(exists=True))
+def read(file_path: str):
+    """Convert a document to Markdown text (no API call).
+
+    Uses Microsoft MarkItDown to convert PDF, DOCX, images, and more
+    to structured Markdown. Output goes to stdout for piping.
+
+    Useful for agent-driven workflows where the calling LLM does the reasoning.
+
+    Examples:
+        pencilpusher read passport.pdf
+        pencilpusher read company_reg.docx
+    """
+    from pencilpusher.ingest.reader import read_with_markitdown
+
+    source = Path(file_path)
+    text = read_with_markitdown(source)
+
+    if text:
+        click.echo(text)
+    else:
+        console.print(f"[red]Could not extract text from {source.name}[/red]", err=True)
+        sys.exit(1)
+
+
+@main.command()
+@click.argument("form_path", type=click.Path(exists=True))
+def detect(form_path: str):
+    """Detect fillable fields in a form document (no API call for AcroForm/DOCX).
+
+    Outputs a JSON array of detected fields to stdout. For flat PDFs (no AcroForm),
+    returns an empty list with a warning — visual detection requires an API call.
+
+    Useful for agent-driven workflows where the calling LLM does the matching.
+
+    Examples:
+        pencilpusher detect application.pdf
+        pencilpusher detect tax_form.docx
+    """
+    import json as json_mod
+    from dataclasses import asdict
+
+    from pencilpusher.fill.detector import detect_acroform_fields, detect_docx_fields
+    from pencilpusher.ingest.reader import detect_file_type
+
+    source = Path(form_path)
+    file_type = detect_file_type(source)
+
+    if file_type == "pdf":
+        fields = detect_acroform_fields(source)
+        if not fields:
+            # Flat PDF — can't detect without vision API
+            result = {
+                "fields": [],
+                "warning": "flat_pdf_requires_vision",
+                "message": "This PDF has no AcroForm fields. Visual detection requires "
+                           "an API call. Use 'pencilpusher fill <form>' with --model instead.",
+            }
+            click.echo(json_mod.dumps(result, indent=2))
+            return
+    elif file_type == "docx":
+        fields = detect_docx_fields(source)
+    else:
+        console.print(f"[red]Unsupported file type: {source.suffix}[/red]", err=True)
+        sys.exit(1)
+
+    result = {"fields": [asdict(f) for f in fields]}
+    click.echo(json_mod.dumps(result, indent=2))
+
+
+@main.command(name="write-wiki")
+@click.argument("page")
+@click.argument("content", required=False, default=None)
+@click.option("--stdin", "from_stdin", is_flag=True, help="Read content from stdin")
+def write_wiki(page: str, content: str | None, from_stdin: bool):
+    """Write content directly to a vault wiki page (no API call).
+
+    Useful for agent-driven workflows where the calling LLM extracts
+    data and writes it to the vault directly.
+
+    Examples:
+        pencilpusher write-wiki identity "# Identity\\nName: Jane Moyo\\nDOB: 1990-03-15"
+        echo "# Banking\\nAccount: 123456" | pencilpusher write-wiki banking --stdin
+    """
+    if from_stdin:
+        content = sys.stdin.read()
+    elif content is None:
+        console.print("[red]Provide content as argument or use --stdin[/red]", err=True)
+        sys.exit(1)
+
+    # Validate page name
+    valid = page in WIKI_PAGES or page in ("index", "log") or page.startswith("companies/")
+    if not valid:
+        console.print(f"[red]Unknown page: {page}[/red]", err=True)
+        console.print(f"Available pages: {', '.join(WIKI_PAGES)}, companies/<name>", err=True)
+        sys.exit(1)
+
+    vault = _get_vault()
+    if not (vault.wiki_dir / "index.md").exists():
+        vault.init()
+
+    # Unescape \\n to actual newlines (common when passed as CLI argument)
+    content = content.replace("\\n", "\n")
+
+    vault.write_wiki_page(page, content)
+    click.echo(f"Updated wiki/{page}.md")
 
 
 @main.command(name="ingest-all")
