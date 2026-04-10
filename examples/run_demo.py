@@ -149,7 +149,7 @@ def fill_pdf_form():
         label = text.rstrip(":")
         if label in FILL_DATA and bbox[0] < 200:
             value = FILL_DATA[label]
-            point = fitz.Point(222, bbox[3])
+            point = fitz.Point(222, bbox[1] + fontsize)
             page.insert_text(point, value, fontsize=fontsize, fontname="helv", color=(0, 0, 0))
             filled += 1
 
