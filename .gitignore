@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+.env
+.pytest_cache/
+.ruff_cache/
+*.so
+.coverage
+htmlcov/
+
+# Never commit vault data
+vault/
+.pencilpusher/
+*.enc
+vault.salt
+vault.check
+tests/test_form10_flat*.pdf
+tests/test_form*_filled*

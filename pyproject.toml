@@ -1,0 +1,65 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pencilpusher"
+version = "0.1.0"
+description = "The AI bureaucrat that fills forms so you don't have to"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Lodewyk Bronn" },
+]
+keywords = ["forms", "pdf", "docx", "autofill", "llm", "ai", "document-filling"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business",
+]
+
+dependencies = [
+    "anthropic>=0.40.0",
+    "pypdf>=4.0",
+    "python-docx>=1.0",
+    "lxml>=4.9",
+    "PyMuPDF>=1.24",
+    "markitdown[pdf,docx]>=0.1.0",
+    "PyYAML>=6.0",
+    "rich>=13.0",
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "ruff",
+]
+ocr = [
+    "pytesseract",
+    "Pillow>=10.0",
+]
+
+[project.scripts]
+pencilpusher = "pencilpusher.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/lodewykb/pencilpusher"
+Issues = "https://github.com/lodewykb/pencilpusher/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pencilpusher"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
