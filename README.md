@@ -14,9 +14,9 @@ sources/                         wiki/                          inbox/ → outbo
 
   passport.pdf     ──ingest──►  identity.md              ┐
   id_card.pdf      ──ingest──►  contacts.md              │
-  pacra_printout   ──ingest──►  companies/showplus.md    ├──►  Form10_filled.docx
+  pacra_printout   ──ingest──►  companies/acme.md        ├──►  Form10_filled.docx
   bank_letter.pdf  ──ingest──►  banking.md               │     KYC_filled.pdf
-  company_reg.pdf  ──ingest──►  companies/ulapa.md       ┘
+  company_reg.pdf  ──ingest──►  companies/mycorp.md      ┘
 ```
 
 Three layers (Karpathy's architecture):
@@ -40,7 +40,7 @@ pencilpusher ingest-all
 
 # 4. Check what it extracted
 pencilpusher show identity
-pencilpusher show companies/showplus
+pencilpusher show companies/acme
 
 # 5. Drop forms into ~/.pencilpusher/inbox/
 
@@ -71,9 +71,7 @@ pencilpusher fill application.docx -o filled.docx
 Successfully produced a 10-document Zambian PACRA compliance package:
 - 4 filled PACRA forms (Form 10, 20, 22, 24)
 - 6 supporting documents (board resolution, notices, minutes, consent, cover letter)
-- From scattered data: WhatsApp chat, PACRA printouts, SA ID card, passport
-
-See `MAESTRO projects/pencilpusher/research/CASE_STUDY_001_zambian_forms.md` for details.
+- From scattered data: company printouts, ID card, passport, chat history
 
 ## Technical stack
 
@@ -109,7 +107,7 @@ See `MAESTRO projects/pencilpusher/research/CASE_STUDY_001_zambian_forms.md` for
 ## Development
 
 ```bash
-git clone https://github.com/lodewykb/pencilpusher.git
+git clone https://github.com/Loodt/pencilpusher.git
 cd pencilpusher
 pip install -e ".[dev]"
 pytest
