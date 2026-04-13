@@ -61,5 +61,8 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["pencilpusher"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
