@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-04-13
+
+### Fixed
+- **Critical:** `src/pencilpusher/vault/` was being matched by the `vault/` `.gitignore` rule (intended for user vault-data dirs), so the vault module was never committed to git and never shipped in the `paperpusher 0.1.0` wheel. `pencilpusher init` and any vault operation crashed with `ModuleNotFoundError: No module named 'pencilpusher.vault'`. The gitignore rule is now anchored to the repo root (`/vault/`), the vault module is in the source tree, and CI now exercises it.
+
+### Yanked
+- `0.1.0` is yanked on PyPI — broken; use `0.1.1` or later.
+
 ## [0.1.0] — 2026-04-10
 
 ### Added

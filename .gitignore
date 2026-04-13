@@ -15,8 +15,8 @@ venv/
 .coverage
 htmlcov/
 
-# Never commit vault data
-vault/
+# Never commit user vault data (anchored to repo root, not src/pencilpusher/vault/)
+/vault/
 .pencilpusher/
 *.enc
 vault.salt

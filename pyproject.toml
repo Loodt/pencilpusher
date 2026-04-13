@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "paperpusher"
-version = "0.1.0"
+version = "0.1.1"
 description = "The AI bureaucrat that fills forms so you don't have to (the `pencilpusher` Python package)"
 readme = "README.md"
 license = "MIT"
@@ -31,6 +31,7 @@ dependencies = [
     "PyYAML>=6.0",
     "rich>=13.0",
     "click>=8.0",
+    "cryptography>=42.0",
 ]
 
 [project.optional-dependencies]
