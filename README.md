@@ -3,9 +3,12 @@
 [![CI](https://github.com/Loodt/pencilpusher/actions/workflows/ci.yml/badge.svg)](https://github.com/Loodt/pencilpusher/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/paperpusher.svg)](https://pypi.org/project/paperpusher/)
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)](#limitations--known-issues)
 
 **The AI bureaucrat that fills forms so you don't have to.**
+
+> Install with `pip install paperpusher` — the `pencilpusher` name was taken on PyPI by an unrelated project, so the distribution ships as `paperpusher` while the CLI and import remain `pencilpusher`.
 
 Drop your documents into a folder. pencilpusher reads them, builds a personal + company knowledge wiki, and when you drop a form into the inbox — it fills it. PDFs, Word docs, government forms, company registrations. No re-typing, no re-extracting.
 
@@ -32,10 +35,7 @@ Three layers (Karpathy's architecture):
 ## Quick start
 
 ```bash
-# Install from source (PyPI release coming soon)
-git clone https://github.com/Loodt/pencilpusher.git
-cd pencilpusher
-pip install -e .
+pip install paperpusher    # PyPI distribution name (the `pencilpusher` name was taken)
 
 # 1. Initialize your vault
 pencilpusher init
