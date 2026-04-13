@@ -8,7 +8,6 @@ Usage:
     pencilpusher lint                          # Health-check your vault wiki
 """
 
-import getpass
 import sys
 from pathlib import Path
 
@@ -16,7 +15,7 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
-from pencilpusher.config import WIKI_PAGES, get_vault_dir, load_config
+from pencilpusher.config import WIKI_PAGES, load_config
 
 console = Console()
 
@@ -109,7 +108,7 @@ def ingest(file_path: str, category: str | None, model: str | None):
     console.print(f"  Pages updated: {', '.join(pages) if pages else 'none'}")
 
     if result.get("unmatched"):
-        console.print(f"\n[yellow]Unmatched data (not categorized):[/yellow]")
+        console.print("\n[yellow]Unmatched data (not categorized):[/yellow]")
         for item in result["unmatched"]:
             console.print(f"  - {item}")
 
@@ -139,13 +138,15 @@ def fill(file_path: str, output: str | None, model: str | None, yes: bool,
         pencilpusher fill tax_form.docx -o filled_tax.docx
         pencilpusher fill kyc_form.pdf --yes
         pencilpusher fill form.pdf --field-map '{"Full Name": "Jane Moyo"}'
-        pencilpusher fill flat.pdf --field-map '{"Name": "Jane"}' --fields-json '[{"name": "Name", "bbox": [15, 20, 50, 3], "page": 0}]'
+        pencilpusher fill flat.pdf --field-map '{"Name": "Jane"}' \\
+            --fields-json '[{"name": "Name", "bbox": [15, 20, 50, 3], "page": 0}]'
     """
     target_path = Path(file_path)
     output_path = Path(output) if output else None
 
     if field_map:
         import json as json_mod
+
         from pencilpusher.fill.pipeline import fill_document_with_map
 
         try:
@@ -348,7 +349,7 @@ def ingest_all_cmd(model: str | None):
     new_sources = [s for s in sources if not vault.is_ingested(s.name)]
 
     if not sources:
-        console.print(f"[yellow]No files in sources/ folder.[/yellow]")
+        console.print("[yellow]No files in sources/ folder.[/yellow]")
         console.print(f"Drop documents into: [bold]{vault.sources_dir}[/bold]")
         return
 
@@ -400,7 +401,7 @@ def fill_all_cmd(model: str | None, yes: bool):
     inbox_files = vault.list_inbox()
 
     if not inbox_files:
-        console.print(f"[yellow]No files in inbox/ folder.[/yellow]")
+        console.print("[yellow]No files in inbox/ folder.[/yellow]")
         console.print(f"Drop forms into: [bold]{vault.inbox_dir}[/bold]")
         return
 
@@ -433,7 +434,6 @@ def lint():
     vault = _get_vault()
     wiki_pages = vault.read_all_wiki_pages()
 
-    issues = []
     empty_count = 0
     populated_count = 0
 
@@ -444,14 +444,14 @@ def lint():
         else:
             populated_count += 1
 
-    console.print(f"\n[bold]Vault Health Check[/bold]")
+    console.print("\n[bold]Vault Health Check[/bold]")
     console.print(f"  Pages: {populated_count} populated, {empty_count} empty")
 
     raw_files = vault.list_raw_files()
     console.print(f"  Source documents: {len(raw_files)}")
 
     if empty_count > 0:
-        console.print(f"\n[yellow]Empty pages:[/yellow]")
+        console.print("\n[yellow]Empty pages:[/yellow]")
         for page_name in WIKI_PAGES:
             content = wiki_pages.get(page_name, "")
             if not content or "No data ingested yet" in content:
@@ -460,7 +460,7 @@ def lint():
     if populated_count == 0:
         console.print("\n[yellow]Vault is empty. Ingest some documents to get started![/yellow]")
     else:
-        console.print(f"\n[green]Vault looks healthy.[/green]")
+        console.print("\n[green]Vault looks healthy.[/green]")
 
     vault._log("lint", f"Health check: {populated_count}/{len(WIKI_PAGES)} pages populated")
 

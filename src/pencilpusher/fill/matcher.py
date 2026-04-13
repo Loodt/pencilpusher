@@ -10,7 +10,6 @@ import anthropic
 
 from pencilpusher.fill.detector import DetectedField
 
-
 MATCHING_SYSTEM_PROMPT = """You are pencilpusher's field matcher. Your job is to match document form fields
 to personal data stored in a wiki-style vault.
 

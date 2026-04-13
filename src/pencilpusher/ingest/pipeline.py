@@ -7,7 +7,6 @@ Fallback flow (vision path — for scanned/image docs):
   source doc → PyMuPDF render → PNG images → Claude vision API → wiki updates
 """
 
-import re
 from pathlib import Path
 
 from pencilpusher.config import WIKI_PAGES

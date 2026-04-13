@@ -112,7 +112,6 @@ def detect_docx_fields(docx_path: Path) -> list[DetectedField]:
     3. Text placeholders like [___], {name}, <<name>>, ________
     """
     import docx
-    from lxml import etree
 
     doc = docx.Document(str(docx_path))
     fields = []

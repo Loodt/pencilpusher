@@ -4,7 +4,6 @@ import json
 
 import anthropic
 
-
 MERGE_SYSTEM_PROMPT = """You are pencilpusher's wiki page editor. You maintain personal data wiki pages.
 
 You receive:

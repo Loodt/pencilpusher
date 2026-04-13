@@ -48,15 +48,15 @@ ocr = [
 pencilpusher = "pencilpusher.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/lodewykb/pencilpusher"
-Issues = "https://github.com/lodewykb/pencilpusher/issues"
+Homepage = "https://github.com/Loodt/pencilpusher"
+Issues = "https://github.com/Loodt/pencilpusher/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pencilpusher"]
 
 [tool.ruff]
 target-version = "py310"
-line-length = 100
+line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]

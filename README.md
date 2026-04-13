@@ -1,5 +1,10 @@
 # pencilpusher
 
+[![CI](https://github.com/Loodt/pencilpusher/actions/workflows/ci.yml/badge.svg)](https://github.com/Loodt/pencilpusher/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)](#limitations--known-issues)
+
 **The AI bureaucrat that fills forms so you don't have to.**
 
 Drop your documents into a folder. pencilpusher reads them, builds a personal + company knowledge wiki, and when you drop a form into the inbox — it fills it. PDFs, Word docs, government forms, company registrations. No re-typing, no re-extracting.
@@ -27,7 +32,10 @@ Three layers (Karpathy's architecture):
 ## Quick start
 
 ```bash
-pip install pencilpusher
+# Install from source (PyPI release coming soon)
+git clone https://github.com/Loodt/pencilpusher.git
+cd pencilpusher
+pip install -e .
 
 # 1. Initialize your vault
 pencilpusher init
@@ -134,6 +142,28 @@ The `read`, `detect`, `write-wiki`, and `fill --field-map` commands make zero AP
 - Python 3.10+
 - Anthropic API key (`ANTHROPIC_API_KEY`) — only needed for `ingest`, `fill` (without --field-map), and `lint`
 
+## Limitations & known issues
+
+pencilpusher is alpha (v0.1.0). It works well on the document classes it has been tested against; it will not handle every form in the wild yet.
+
+**What works well today:**
+- AcroForm PDFs with named fields
+- Flat PDFs where field labels are present as selectable text
+- DOCX with SDT content controls, table cells, or simple `{{placeholder}}` markers
+- Latin-script (English) form labels and values
+
+**What's flaky or unsupported:**
+- **Scanned / image-only PDFs** — no OCR in the default install. The optional `[ocr]` extra installs `pytesseract` but the pipeline doesn't yet feed OCR output into field detection. Expect to do this manually for now.
+- **Non-Latin scripts** in field labels — Claude can match them, but PyMuPDF text insertion uses the document's default font, which may not contain the needed glyphs. Workaround: AcroForm PDFs only.
+- **Checkboxes and radio groups in flat PDFs** — only AcroForm checkboxes are reliably filled. Flat-PDF checkbox detection is not yet implemented.
+- **Multi-page forms with repeating sections** (e.g. "list each director on a separate row") — the field matcher treats each row independently and may duplicate values.
+- **Forms with overlapping or rotated text** — flat-PDF position detection assumes labels are upright and non-overlapping.
+- **Encrypted / password-protected PDFs** — must be unlocked before passing to pencilpusher.
+- **Excel (XLSX) and OpenDocument (ODT)** — not supported. PRs welcome.
+- **Windows path edge cases** — generally works, but report anything you hit.
+
+If you have a form that fails, please [open an issue](https://github.com/Loodt/pencilpusher/issues/new?template=bug_report.yml) with an anonymised sample. Real-world failures are the main thing driving v0.2.
+
 ## Development
 
 ```bash
@@ -143,6 +173,8 @@ pip install -e ".[dev]"
 pytest
 ```
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

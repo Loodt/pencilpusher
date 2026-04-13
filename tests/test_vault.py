@@ -1,11 +1,9 @@
 """Tests for the vault store and crypto modules."""
 
-import tempfile
-from pathlib import Path
 
 import pytest
 
-from pencilpusher.vault.crypto import init_vault_encryption, encrypt_text, decrypt_text
+from pencilpusher.vault.crypto import decrypt_text, encrypt_text, init_vault_encryption
 from pencilpusher.vault.store import Vault
 
 
@@ -97,6 +95,7 @@ class TestDetector:
     def test_detect_docx_placeholder_brackets(self, tmp_path):
         """Test detection of [___] style placeholders."""
         from docx import Document
+
         from pencilpusher.fill.detector import detect_docx_fields
 
         doc = Document()
@@ -111,6 +110,7 @@ class TestDetector:
     def test_detect_docx_placeholder_underlines(self, tmp_path):
         """Test detection of _________ style placeholders."""
         from docx import Document
+
         from pencilpusher.fill.detector import detect_docx_fields
 
         doc = Document()

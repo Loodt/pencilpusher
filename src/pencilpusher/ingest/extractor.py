@@ -6,7 +6,6 @@ structured personal data, then updates the relevant wiki pages.
 
 import base64
 import json
-from pathlib import Path
 
 import anthropic
 

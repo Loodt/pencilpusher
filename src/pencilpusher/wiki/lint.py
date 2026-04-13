@@ -8,9 +8,6 @@ import json
 
 import anthropic
 
-from pencilpusher.config import WIKI_PAGES
-
-
 LINT_SYSTEM_PROMPT = """You are pencilpusher's wiki linter. Analyze the personal data wiki pages
 and identify issues.
 

@@ -1,0 +1,72 @@
+name: Bug report
+description: Report something that's broken or behaving unexpectedly
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: When I run `pencilpusher fill ...`, I expected X but got Y.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The exact commands you ran. Anonymise any sample documents.
+      placeholder: |
+        1. `pencilpusher init`
+        2. `pencilpusher ingest passport.pdf`
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: input
+    id: pencilpusher-version
+    attributes:
+      label: pencilpusher version / commit
+      placeholder: "0.1.0 or commit sha"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.11.6"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other / WSL
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / tracebacks
+      render: shell
+
+  - type: textarea
+    id: doc-type
+    attributes:
+      label: Document type involved
+      description: AcroForm PDF, flat PDF, DOCX with SDT, DOCX table, etc. Note any unusual aspects (scanned, non-Latin script, locked).
