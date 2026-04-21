@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Context
 These additions are driven by a real-world miss on the GKD filter-press enquiry form (2026-04-20) where the widget path clipped every multi-word answer in the narrow Specification and Remarks columns, forcing a half-day of bespoke PyMuPDF work. The `probe` + `--textbox-mode` pair brings those patterns back into the library so the next dense questionnaire is a one-command fill.
 
+### Known gaps (scope for v0.3)
+An end-to-end dogfood on the GKD form covered 70 text cells in one CLI call; the remaining ~20% still requires PyMuPDF directly. See the [Roadmap section in the README](README.md#roadmap) for the concrete v0.3 scope:
+
+- Drawing primitives via a new `--marks-json` flag — ovals around Yes/No words, ticks / X / em-dash next to option labels, and "?" markers for cells where Yes/No doesn't map.
+- `detect` on a flat PDF to embed the `probe` layout in its output (single round-trip).
+- OCR output → field detection pipeline, flat-PDF checkbox/radio groups, XLSX support.
+
 ## [0.1.1] — 2026-04-13
 
 ### Fixed

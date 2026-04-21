@@ -222,6 +222,40 @@ pencilpusher is alpha (v0.1.0). It works well on the document classes it has bee
 
 If you have a form that fails, please [open an issue](https://github.com/Loodt/pencilpusher/issues/new?template=bug_report.yml) with an anonymised sample. Real-world failures are the main thing driving v0.2.
 
+## Roadmap
+
+Scope that is known and concrete, not yet implemented. In rough priority order:
+
+### v0.3 — drawing primitives for flat-PDF marks
+
+The `probe` + `fill --textbox-mode` pair added after the GKD filter-press dogfood (2026-04-21) handles text fills on dense flat PDFs, but leaves circles and tick marks as PyMuPDF-direct work. A real supplier questionnaire typically needs:
+
+- **Oval around a chosen word** inside the form's own text, e.g. circling `Yes` within a pre-printed `Yes/No` cell. Currently requires `page.draw_oval(fitz.Rect(...))` by hand.
+- **Tick / X / em-dash next to an option label** at an x-offset from the label's bbox, e.g. ticking `Recessed chamber` in a 3-option column. Currently requires `page.search_for(label)` + `page.insert_text` arithmetic.
+- **"?" / "N/A" markers** for cells where the answer is "vendor to decide" but the form only has Yes/No — currently hand-placed relative to the form text.
+
+Planned CLI surface: a new `--marks-json` flag on `fill`, parallel to `--fields-json`. Each entry would be something like:
+
+```json
+{"type": "oval", "target": "Yes",   "row_bbox_pct": [4, 30, 96, 4], "color": [0, 0, 0.75]}
+{"type": "tick", "target": "Recessed chamber", "offset_pt": [5, 0], "mark": "X"}
+{"type": "text", "value": "?",      "bbox_pct": [45, 40, 2, 2]}
+```
+
+The filler would search within `row_bbox_pct` (or page-wide if omitted), find the target word's bbox, and draw the mark at the derived position. Keeps the agent's job to "pick the target word and the shape" rather than to compute pixel coordinates.
+
+### v0.3 — `detect` embeds `probe` layout for flat PDFs
+
+Currently `pencilpusher detect flat.pdf` returns `{"fields": [], "warning": "flat_pdf_requires_vision"}` and the agent has to run `probe` as a second call. Plan: when the PDF is flat, embed the full `probe_pdf_layout()` result alongside the warning so the agent gets the structural information in a single round-trip. No behaviour change for AcroForm PDFs or DOCX.
+
+### Other items on deck
+
+- **OCR pipeline for scanned flat PDFs.** The optional `[ocr]` extra installs `pytesseract` today but the output isn't fed into field detection. Plumb through.
+- **Flat-PDF checkbox + radio groups.** Currently only AcroForm checkboxes fill reliably. Detect checkbox-shaped drawing rects during `probe` and expose them as a distinct field type.
+- **Excel (`.xlsx`) support** — named ranges → vault values. PRs welcome.
+
+If you're looking to contribute, the v0.3 drawing primitives are the highest-leverage item — they close the remaining gap on dense supplier / government forms.
+
 ## Development
 
 ```bash
