@@ -122,9 +122,18 @@ def ingest(file_path: str, category: str | None, model: str | None):
 @click.option("--field-map", default=None,
               help='JSON field-to-value mapping. Skips API matching. E.g. \'{"Full Name": "Jane Moyo"}\'')
 @click.option("--fields-json", default=None,
-              help='JSON detected fields (from "detect" output). Needed for flat PDF filling with --field-map.')
+              help='JSON detected fields (from "detect" output). Needed for flat PDF filling with --field-map. '
+                   'Each entry is {"name": str, "bbox": [x, y, w, h], "page": int} where '
+                   'bbox values are PERCENTAGES of page dimensions (0-100), NOT PDF points. '
+                   'Example on A4: a 20-pt-wide answer box at x=280pt becomes x=47, w=3.4.')
+@click.option("--textbox-mode", is_flag=True,
+              help="For flat PDFs, overlay answers with `insert_textbox` + auto font-shrink "
+                   "instead of fixed-10pt widgets. Use for dense supplier / government forms "
+                   "where cells are narrow and answers are multi-word. Per-field style overrides "
+                   "(font, font_size, font_color, align) can be supplied in --fields-json entries "
+                   "under a 'textbox_options' key.")
 def fill(file_path: str, output: str | None, model: str | None, yes: bool,
-         field_map: str | None, fields_json: str | None):
+         field_map: str | None, fields_json: str | None, textbox_mode: bool):
     """Fill a form document with your vault data.
 
     Detects fields in the document, matches them to your personal data,
@@ -133,11 +142,19 @@ def fill(file_path: str, output: str | None, model: str | None, yes: bool,
     With --field-map, skips the API matching step entirely (agent-driven mode).
     Add --fields-json for flat PDFs where field positions are needed.
 
+    IMPORTANT: --fields-json bboxes are in PERCENTAGES of page dimensions
+    (0-100), NOT PDF points. The filler internally multiplies by page
+    width/height. If you compute bboxes in PDF points (e.g. from PyMuPDF
+    `span['bbox']`), convert with `pct = pt / page_dim_pt * 100` before
+    passing in. Using raw points places all answers off-page and the
+    output looks blank.
+
     Examples:
         pencilpusher fill application.pdf
         pencilpusher fill tax_form.docx -o filled_tax.docx
         pencilpusher fill kyc_form.pdf --yes
         pencilpusher fill form.pdf --field-map '{"Full Name": "Jane Moyo"}'
+        # bbox below is [x%, y%, w%, h%] of page dimensions, not points:
         pencilpusher fill flat.pdf --field-map '{"Name": "Jane"}' \\
             --fields-json '[{"name": "Name", "bbox": [15, 20, 50, 3], "page": 0}]'
     """
@@ -164,7 +181,8 @@ def fill(file_path: str, output: str | None, model: str | None, yes: bool,
                 sys.exit(1)
 
         fill_document_with_map(target_path, parsed_map, output_path=output_path,
-                               fields_override=parsed_fields)
+                               fields_override=parsed_fields,
+                               textbox_mode=textbox_mode)
     else:
         from pencilpusher.fill.pipeline import fill_document
 
@@ -176,7 +194,9 @@ def fill(file_path: str, output: str | None, model: str | None, yes: bool,
             sys.exit(1)
 
         use_model = model or config.get("vision_model", "claude-sonnet-4-6")
-        fill_document(vault, target_path, output_path=output_path, model=use_model, auto_confirm=yes)
+        fill_document(vault, target_path, output_path=output_path,
+                      model=use_model, auto_confirm=yes,
+                      textbox_mode=textbox_mode)
 
 
 @main.command()
@@ -272,7 +292,12 @@ def detect(form_path: str):
                 "fields": [],
                 "warning": "flat_pdf_requires_vision",
                 "message": "This PDF has no AcroForm fields. Use your own vision to identify "
-                           "field positions, then pass them via --fields-json when filling.",
+                           "field positions, then pass them via --fields-json when filling. "
+                           "IMPORTANT: bbox values are PERCENTAGES of page dimensions (0-100), "
+                           "NOT PDF points. Each field entry is "
+                           '{"name": str, "bbox": [x, y, w, h], "page": int} with all bbox '
+                           "values in 0-100. If you derive coordinates from PyMuPDF (which "
+                           "reports in points), convert via x_pct = x_pt / page_width_pt * 100.",
             }
             click.echo(json_mod.dumps(result, indent=2))
             return
@@ -284,6 +309,59 @@ def detect(form_path: str):
 
     result = {"fields": [asdict(f) for f in fields]}
     click.echo(json_mod.dumps(result, indent=2))
+
+
+@main.command()
+@click.argument("form_path", type=click.Path(exists=True))
+@click.option("--min-divider-count", type=int, default=3,
+              help="A vertical x-coord is reported as a column divider only if "
+                   "at least this many rectangles use it. Filters one-off graphics.")
+def probe(form_path: str, min_divider_count: int):
+    """Probe a flat PDF's layout: column dividers, row separators, digit spans.
+
+    Outputs a JSON document describing the cell structure of a flat PDF — the
+    information an agent needs to build a `--fields-json` payload for a form
+    with no AcroForm fields. Use together with `fill --textbox-mode`.
+
+    The returned JSON has one entry per page with:
+
+    \b
+      - column_dividers  : unique x-coords of vertical cell edges (PDF points)
+      - row_horizontals  : unique y-coords of horizontal cell edges (PDF points)
+      - digit_spans      : every short digit-only text span with its bbox,
+                           for anchoring row numbers in a "No." column
+      - width, height    : page dimensions in PDF points
+
+    Typical recipe for a dense supplier questionnaire:
+
+    \b
+      1. `pencilpusher probe form.pdf > layout.json`
+      2. From column_dividers, pick the x that bounds the answer-column left
+         edge. From digit_spans filtered by x-range, build {row_num: y_top}.
+      3. Build --fields-json entries using those coordinates (converted to
+         percentages — see `pencilpusher fill --help`).
+      4. `pencilpusher fill form.pdf --field-map ... --fields-json ... --textbox-mode`
+
+    Examples:
+
+    \b
+      pencilpusher probe enquiry.pdf
+      pencilpusher probe enquiry.pdf --min-divider-count 5
+    """
+    import json as json_mod
+
+    from pencilpusher.fill.prober import probe_pdf_layout
+    from pencilpusher.ingest.reader import detect_file_type
+
+    source = Path(form_path)
+    file_type = detect_file_type(source)
+    if file_type != "pdf":
+        console.print(f"[red]probe only supports PDFs; got {source.suffix}[/red]",
+                      err=True)
+        sys.exit(1)
+
+    layout = probe_pdf_layout(source, min_divider_count=min_divider_count)
+    click.echo(json_mod.dumps(layout, indent=2))
 
 
 @main.command(name="write-wiki")

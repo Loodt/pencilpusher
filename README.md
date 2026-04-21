@@ -111,6 +111,8 @@ Successfully produced a 10-document Zambian PACRA compliance package:
 | `pencilpusher write-wiki <page> <content>` | Write directly to a vault wiki page (no API) |
 | `pencilpusher fill <form> --field-map '{...}'` | Fill with explicit mapping (no API) |
 | `pencilpusher fill <form> --field-map '{...}' --fields-json '[...]'` | Fill flat PDF with agent-provided field positions (no API) |
+| `pencilpusher fill <form> --field-map '{...}' --fields-json '[...]' --textbox-mode` | Flat-PDF fill using `insert_textbox` overlay with auto font-shrink — for dense forms with narrow cells |
+| `pencilpusher probe <form>` | Flat-PDF layout probe: column dividers, row separators, digit spans (JSON, no API) |
 
 ## Agent-driven mode (no API key needed)
 
@@ -133,6 +135,62 @@ pencilpusher fill application.pdf --field-map '{"Full Name": "Jane Moyo", "Date 
 pencilpusher fill flat.pdf \
   --field-map '{"Full Name": "Jane Moyo"}' \
   --fields-json '[{"name": "Full Name", "bbox": [15, 20, 50, 3], "page": 0}]'
+```
+
+### Dense flat forms: `probe` + `fill --textbox-mode`
+
+For supplier questionnaires and government forms that are flat PDFs with narrow cells and multi-word answers, the default widget-fill path (`_create_and_fill_widgets`) uses a fixed 10 pt font with no wrap, which clips anything longer than ~4 words. Two commands address this:
+
+- **`pencilpusher probe <form>`** inspects the form's cell structure and emits JSON with `column_dividers`, `row_horizontals`, and `digit_spans`. Use these to compute authoritative answer-box positions instead of guessing.
+- **`pencilpusher fill ... --textbox-mode`** overlays answers via `page.insert_textbox()` with an automatic font-size shrink fallback (tries progressively smaller sizes until the text fits; truncates with an ellipsis only as a last resort). Per-field font, colour, and alignment can be set via a `textbox_options` dict on each `--fields-json` entry.
+
+Recipe:
+
+```bash
+# 1. Probe the form structure (no API).
+pencilpusher probe enquiry.pdf > layout.json
+
+# 2. Agent reads layout.json, computes answer-box bboxes per field,
+#    builds field-map + fields-json with per-cell font sizes.
+
+# 3. Fill with the textbox filler (narrow cells handled gracefully).
+pencilpusher fill enquiry.pdf \
+  --field-map '{"Customer": "M-Tech Industrial", ...}' \
+  --fields-json '[{...percentage bboxes with textbox_options...}]' \
+  --textbox-mode \
+  -o enquiry_filled.pdf --yes
+```
+
+### `--fields-json` bbox format (important)
+
+Each entry in `--fields-json` is:
+
+```json
+{"name": "<field name>", "bbox": [x, y, w, h], "page": 0}
+```
+
+**`bbox` values are PERCENTAGES of page dimensions (0-100), NOT PDF points.** The filler internally multiplies by `page_rect.width` and `page_rect.height` divided by 100. An A4 page is 595.4 × 841.8 pt, so a cell at 280 pt from the left edge is `x = 280 / 595.4 × 100 ≈ 47`. If you feed raw PDF-point coordinates (e.g. from PyMuPDF `span['bbox']`), all your answers will land off-page and the filled PDF will look blank while `pencilpusher` still reports "Filled N fields" — a silent misfire.
+
+Per-field overrides for `--textbox-mode` can be supplied on each entry:
+
+```json
+{"name": "Stream description",
+ "bbox": [46, 28, 16, 2], "page": 0,
+ "textbox_options": {
+    "font": "helv",
+    "font_size": 7.5,
+    "font_color": [0, 0, 0.75],
+    "align": "left"
+ }}
+```
+
+When agents use `pencilpusher detect` on an AcroForm PDF or a PDF that the LLM-vision path handles, the returned bboxes are already in percentage form. When building `--fields-json` manually from low-level PyMuPDF coordinates, convert first:
+
+```python
+PAGE_W_PT, PAGE_H_PT = 595.4, 841.8  # A4 portrait
+def to_pct_bbox(x_pt, y_pt, w_pt, h_pt):
+    return [x_pt / PAGE_W_PT * 100, y_pt / PAGE_H_PT * 100,
+            w_pt / PAGE_W_PT * 100, h_pt / PAGE_H_PT * 100]
 ```
 
 The `read`, `detect`, `write-wiki`, and `fill --field-map` commands make zero API calls. For flat PDFs, pass `--fields-json` with field positions from the agent's own vision analysis. The existing `ingest` and `fill` commands still work standalone with an API key.

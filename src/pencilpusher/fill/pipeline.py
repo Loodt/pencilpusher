@@ -24,6 +24,7 @@ def fill_document(
     output_path: Path | None = None,
     model: str = "claude-sonnet-4-6",
     auto_confirm: bool = False,
+    textbox_mode: bool = False,
 ) -> Path:
     """Fill a document with data from the vault.
 
@@ -96,7 +97,10 @@ def fill_document(
     successful_matches = [m for m in matches if m.get("matched_value")]
 
     if file_type == "pdf":
-        result_path = fill_pdf(target_path, successful_matches, fields, output_path)
+        result_path = fill_pdf(
+            target_path, successful_matches, fields, output_path,
+            mode="textbox" if textbox_mode else "widget",
+        )
     elif file_type == "docx":
         result_path = fill_docx(target_path, successful_matches, fields, output_path)
     else:
@@ -123,6 +127,7 @@ def fill_document_with_map(
     field_map: dict[str, str],
     output_path: Path | None = None,
     fields_override: list[dict] | None = None,
+    textbox_mode: bool = False,
 ) -> Path:
     """Fill a document using an explicit field-to-value mapping (no API calls).
 
@@ -135,6 +140,14 @@ def fill_document_with_map(
         output_path: Where to save (default: alongside original with _filled suffix)
         fields_override: List of field dicts with name, bbox, page, etc.
             Used for flat PDFs where the agent provides field positions.
+        textbox_mode: For flat PDFs, use ``insert_textbox`` overlay with
+            font-size shrink fallback instead of creating fixed-10pt
+            single-line widgets. Prefer this for dense supplier /
+            government forms where answers are multi-word and cells
+            are narrow. Per-field font / colour / alignment overrides
+            can be supplied via a ``textbox_options`` key on each
+            fields_override entry, which will be passed through to the
+            matches list.
 
     Returns:
         Path to the filled document
@@ -177,6 +190,15 @@ def fill_document_with_map(
         raise ValueError(f"Unsupported file type: {target_path.suffix}")
 
     # Convert field_map to matches format expected by fillers
+    # (pull textbox_options from fields_override so per-field formatting
+    # flows through to the textbox filler).
+    override_opts = {}
+    if fields_override:
+        for f in fields_override:
+            name = f.get("name")
+            if name and f.get("textbox_options"):
+                override_opts[name] = f["textbox_options"]
+
     matches = []
     for field_name, value in field_map.items():
         # Try to find a matching detected field for the key
@@ -185,15 +207,21 @@ def fill_document_with_map(
             if f.name.lower() == field_name.lower() or f.field_key.lower() == field_name.lower():
                 field_key = f.field_key
                 break
-        matches.append({
+        match = {
             "field_name": field_name,
             "field_key": field_key,
             "matched_value": value,
-        })
+        }
+        if field_name in override_opts:
+            match["textbox_options"] = override_opts[field_name]
+        matches.append(match)
 
     # Fill
     if file_type == "pdf":
-        result_path = fill_pdf(target_path, matches, fields, output_path)
+        result_path = fill_pdf(
+            target_path, matches, fields, output_path,
+            mode="textbox" if textbox_mode else "widget",
+        )
     elif file_type == "docx":
         result_path = fill_docx(target_path, matches, fields, output_path)
 

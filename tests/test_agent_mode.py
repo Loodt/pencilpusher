@@ -245,3 +245,180 @@ class TestFillWithFieldMap:
             "--fields-json", "not-json",
         ])
         assert result.exit_code != 0
+
+
+class TestProbe:
+    """Tests for the `probe` command — flat-PDF layout introspection."""
+
+    @staticmethod
+    def _tiny_gridded_pdf(path: Path) -> Path:
+        """Build a 1-page PDF with a 2x3 cell grid + digits '1'/'2'/'3' in the left col.
+
+        Each vertical divider is drawn as 3 short segments (one per row) so
+        the divider x-coord appears at least 3 times in `get_drawings()`,
+        matching the default min_divider_count=3.
+        """
+        import fitz
+
+        doc = fitz.open()
+        page = doc.new_page(width=300, height=400)
+        # Row boundaries at y=50/100/150/200 — each as 3 segments (one per column)
+        # so each horizontal y also appears multiple times.
+        row_ys = (50, 100, 150, 200)
+        vert_xs = (30, 80, 270)
+        for y in row_ys:
+            for x0, x1 in zip(vert_xs[:-1], vert_xs[1:]):
+                page.draw_line(fitz.Point(x0, y), fitz.Point(x1, y),
+                               color=(0, 0, 0), width=0.4)
+        # Column dividers — drawn as 3 segments (one per row) so the x-coord
+        # accumulates count=3.
+        for x in vert_xs:
+            for y0, y1 in zip(row_ys[:-1], row_ys[1:]):
+                page.draw_line(fitz.Point(x, y0), fitz.Point(x, y1),
+                               color=(0, 0, 0), width=0.4)
+        # Row numbers '1', '2', '3' inside the No. column (x ~ 40-65).
+        for row_num, y in enumerate((68, 118, 168), start=1):
+            page.insert_text(fitz.Point(50, y), str(row_num),
+                             fontname="helv", fontsize=10)
+        doc.save(str(path))
+        doc.close()
+        return path
+
+    def test_probe_reports_column_dividers_and_digits(self, runner, tmp_path):
+        """probe should return column dividers and digit spans for the grid."""
+        pdf = self._tiny_gridded_pdf(tmp_path / "grid.pdf")
+
+        result = runner.invoke(main, ["probe", str(pdf)])
+        assert result.exit_code == 0, result.output
+
+        data = json.loads(result.output)
+        assert "pages" in data and len(data["pages"]) == 1
+
+        page = data["pages"][0]
+        assert page["page"] == 0
+        assert page["width"] == 300.0
+        assert page["height"] == 400.0
+
+        # With min-divider-count=3 (default), the three vertical lines
+        # at x=30/80/270 should all be reported (they each appear in at
+        # least 3 drawn segments via their endpoints).
+        dividers = page["column_dividers"]
+        # Expect at least one divider near each of 30, 80, 270 (tolerance 2pt).
+        for target in (30, 80, 270):
+            assert any(abs(d - target) < 2 for d in dividers), (
+                f"expected column divider near x={target}, got {dividers}"
+            )
+
+        # Three digit spans "1", "2", "3" should appear.
+        digit_texts = sorted(d["text"] for d in page["digit_spans"])
+        assert digit_texts == ["1", "2", "3"]
+        # Their x0 should sit in the No.-column range (30-80).
+        for d in page["digit_spans"]:
+            x0 = d["bbox"][0]
+            assert 30 <= x0 <= 80, d
+
+    def test_probe_rejects_non_pdf(self, runner, tmp_path):
+        """probe should reject non-PDF inputs with a non-zero exit."""
+        from docx import Document
+
+        doc = Document()
+        doc.add_paragraph("Not a PDF")
+        docx_path = tmp_path / "not-a-pdf.docx"
+        doc.save(str(docx_path))
+
+        result = runner.invoke(main, ["probe", str(docx_path)])
+        assert result.exit_code != 0
+
+
+class TestFillTextboxMode:
+    """Tests for `fill --textbox-mode` on flat PDFs."""
+
+    @staticmethod
+    def _blank_flat_pdf(path: Path) -> Path:
+        import fitz
+
+        doc = fitz.open()
+        doc.new_page(width=595, height=842)
+        doc.save(str(path))
+        doc.close()
+        return path
+
+    def test_textbox_mode_wraps_long_answer(self, runner, tmp_path):
+        """A long answer should fit inside a narrow cell via font-shrink."""
+        import fitz
+
+        pdf = self._blank_flat_pdf(tmp_path / "flat.pdf")
+
+        # 100 x 20 pt cell at (40, 40) — too small for a 120-char answer
+        # at 10 pt, so the shrink fallback must kick in.
+        long_value = ("Spillage water from Elution/Carbon bunded sump; "
+                      "alkaline pH 10-11; residual CN- ~50-100 mg/L")
+        # Convert to percentages of the 595 x 842 page.
+        bbox = [40 / 595 * 100, 40 / 842 * 100,
+                100 / 595 * 100, 20 / 842 * 100]
+        fields_json = json.dumps([{
+            "name": "Stream",
+            "field_type": "visual",
+            "page": 0,
+            "bbox": bbox,
+            "textbox_options": {
+                "font_size": 10,
+                "font_color": [0, 0, 0.75],
+            },
+        }])
+        field_map = json.dumps({"Stream": long_value})
+
+        output_path = tmp_path / "filled.pdf"
+        result = runner.invoke(main, [
+            "fill", str(pdf),
+            "--field-map", field_map,
+            "--fields-json", fields_json,
+            "--textbox-mode",
+            "-o", str(output_path),
+        ])
+        assert result.exit_code == 0, result.output
+        assert output_path.exists()
+
+        # In textbox mode we should NOT have added an AcroForm widget;
+        # text goes straight onto the page as content.
+        out_doc = fitz.open(str(output_path))
+        try:
+            page = out_doc[0]
+            assert len(list(page.widgets())) == 0
+            # Some portion of the answer must be rendered as text.
+            text = page.get_text()
+            # At the minimum, a recognisable fragment should appear — the
+            # shrink fallback may truncate, so we check a short prefix.
+            assert "Spill" in text or "water" in text, text
+        finally:
+            out_doc.close()
+
+    def test_widget_mode_still_default(self, runner, tmp_path):
+        """Without --textbox-mode, flat-PDF fill still creates a widget."""
+        import fitz
+
+        pdf = self._blank_flat_pdf(tmp_path / "flat.pdf")
+        fields_json = json.dumps([{
+            "name": "Name",
+            "field_type": "visual",
+            "page": 0,
+            "bbox": [10, 10, 30, 3],
+        }])
+        field_map = json.dumps({"Name": "Jane"})
+
+        output_path = tmp_path / "filled.pdf"
+        result = runner.invoke(main, [
+            "fill", str(pdf),
+            "--field-map", field_map,
+            "--fields-json", fields_json,
+            "-o", str(output_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        out_doc = fitz.open(str(output_path))
+        try:
+            widgets = list(out_doc[0].widgets())
+            assert len(widgets) == 1
+            assert widgets[0].field_value == "Jane"
+        finally:
+            out_doc.close()
