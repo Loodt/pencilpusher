@@ -63,6 +63,18 @@ pencilpusher ingest passport.pdf
 pencilpusher fill application.docx -o filled.docx
 ```
 
+## Claude Code users
+
+If you're using [Claude Code](https://claude.com/claude-code) (or another agent harness that speaks the [Agent Skills](https://agentskills.io) spec), this repo ships a plugin at [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) and a skill at [`skills/pencilpusher/SKILL.md`](skills/pencilpusher/SKILL.md). Install it alongside the pip package:
+
+```bash
+pip install paperpusher                # deterministic CLI + Python module
+/plugin marketplace add Loodt/pencilpusher
+/plugin install pencilpusher@pencilpusher
+```
+
+The skill teaches the agent when to trigger pencilpusher (KYC, supplier questionnaires, compliance forms), the agent-driven command surface (`read`, `detect`, `probe`, `fill --field-map --fields-json --textbox-mode`, `write-wiki`), and the percentage-based `--fields-json` bbox format — the one silent-misfire mode on flat PDFs. See [`skills/pencilpusher/reference.md`](skills/pencilpusher/reference.md) for the full manual.
+
 ## Features
 
 - **Folder-based workflow** — drop docs in, get filled forms out

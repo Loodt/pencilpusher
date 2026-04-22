@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`pencilpusher fill ... --textbox-mode`** — new flag on `fill` that switches the flat-PDF code path from `_create_and_fill_widgets` (fixed 10 pt widgets, no wrap, clip on overflow) to `_fill_with_textboxes` using `page.insert_textbox()` with automatic font-size shrink fallback. Narrow cells with multi-word answers now render cleanly. Per-field styling (font, size, colour, alignment) is configurable via a `textbox_options` dict on each `--fields-json` entry.
 - New module `pencilpusher.fill.prober` with a public `probe_pdf_layout()` function.
 - Tests covering `probe` and `fill --textbox-mode` in `tests/test_agent_mode.py`.
+- **Claude Code plugin** at `.claude-plugin/marketplace.json` and an [Agent Skills](https://agentskills.io)-compliant skill at `skills/pencilpusher/` (`SKILL.md` + `reference.md` + `LICENSE.txt`). Installable via `/plugin marketplace add Loodt/pencilpusher` then `/plugin install pencilpusher@pencilpusher`. Versioned independently of the package — starts at skill `0.1.0`, `status: alpha`.
 
 ### Context
 These additions are driven by a real-world miss on the GKD filter-press enquiry form (2026-04-20) where the widget path clipped every multi-word answer in the narrow Specification and Remarks columns, forcing a half-day of bespoke PyMuPDF work. The `probe` + `--textbox-mode` pair brings those patterns back into the library so the next dense questionnaire is a one-command fill.

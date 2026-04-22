@@ -1,0 +1,22 @@
+{
+  "name": "pencilpusher",
+  "owner": {
+    "name": "Lodewyk Bronn",
+    "email": "lodewykbronn@gmail.com"
+  },
+  "metadata": {
+    "description": "pencilpusher — The AI bureaucrat that fills forms so you don't have to. Ships one skill for filling AcroForm PDFs, DOCX with SDT content controls and tables, and dense flat-PDF supplier questionnaires from a persistent user-wide knowledge vault.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "pencilpusher",
+      "description": "Fill structured forms (AcroForm PDFs, DOCX SDTs / tables / placeholders, dense flat-PDF questionnaires) from a user-wide knowledge vault. Agent-driven commands make zero Anthropic API calls — the calling agent does the reasoning; pencilpusher does deterministic document manipulation.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/pencilpusher"
+      ]
+    }
+  ]
+}
